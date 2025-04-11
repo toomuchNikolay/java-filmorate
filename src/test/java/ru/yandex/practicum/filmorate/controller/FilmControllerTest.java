@@ -9,7 +9,6 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 
-import java.time.Duration;
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,7 +28,7 @@ class FilmControllerTest {
         film.setName("Test Name Film");
         film.setDescription("description");
         film.setReleaseDate(LocalDate.of(2000, 10, 20));
-        film.setDuration(Duration.ofMinutes(150));
+        film.setDuration(150);
     }
 
     @Test
@@ -43,7 +42,7 @@ class FilmControllerTest {
         duplicate.setName(film.getName().toLowerCase());
         duplicate.setDescription("duplicate description");
         duplicate.setReleaseDate(LocalDate.of(2022, 12, 12));
-        duplicate.setDuration(Duration.ofMinutes(120));
+        duplicate.setDuration(120);
 
         DuplicatedDataException e = assertThrows(DuplicatedDataException.class, () -> controller.add(duplicate));
         assertEquals("Фильм с указанным названием уже добавлен", e.getMessage(),

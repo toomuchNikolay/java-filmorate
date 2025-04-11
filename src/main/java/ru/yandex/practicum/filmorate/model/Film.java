@@ -5,10 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.hibernate.validator.constraints.time.DurationMin;
 import ru.yandex.practicum.filmorate.validator.ReleaseDateValid;
 
-import java.time.Duration;
 import java.time.LocalDate;
 
 /**
@@ -35,6 +33,6 @@ public class Film {
     private LocalDate releaseDate;
 
     /** Продолжительность фильма. */
-    @DurationMin(millis = 1, message = "Продолжительность фильма должна быть положительным числом")
-    private Duration duration;
+    @Positive(message = "Продолжительность фильма должна быть положительным числом")
+    private Integer duration;
 }

@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Set;
 
@@ -27,7 +26,7 @@ class FilmTest {
         film.setName("test name film");
         film.setDescription("description");
         film.setReleaseDate(LocalDate.of(2000, 10, 20));
-        film.setDuration(Duration.ofMinutes(150));
+        film.setDuration(150);
     }
 
     @Test
@@ -77,12 +76,12 @@ class FilmTest {
 
     @Test
     void checkAnnotationFieldDuration() {
-        film.setDuration(Duration.ofMillis(1));
+        film.setDuration(1);
         Set<ConstraintViolation<Film>> violations = validatorFactoryBean.validate(film);
 
         assertTrue(violations.isEmpty(), "Не прошла проверка на предельно допустимую продолжительность");
 
-        film.setDuration(Duration.ZERO);
+        film.setDuration(0);
         violations = validatorFactoryBean.validate(film);
 
         assertEquals("Продолжительность фильма должна быть положительным числом",
