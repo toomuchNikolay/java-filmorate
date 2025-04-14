@@ -23,7 +23,8 @@ class FilmControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller.getAllFilms().clear();
+        controller.getFilms().clear();
+        controller.getAddFilms().clear();
         film = new Film();
         film.setName("Test Name Film");
         film.setDescription("description");
@@ -32,20 +33,38 @@ class FilmControllerTest {
     }
 
     @Test
+    void checkMethodGetAllFilms() {
+        controller.add(film);
+
+        Film yetFilm = new Film();
+        yetFilm.setName("Test Another Name Film");
+        yetFilm.setDescription("");
+        yetFilm.setReleaseDate(LocalDate.of(2022, 2, 22));
+        yetFilm.setDuration(90);
+        controller.add(yetFilm);
+
+        assertEquals(2, controller.getAllFilms().size(), "Ошибка в количестве добавленных фильмов");
+        assertTrue(controller.getAllFilms().contains(film), "При получении списка фильмов отсутствует film");
+        assertTrue(controller.getAllFilms().contains(yetFilm), "При получении списка фильмов отсутствует yetFilm");
+    }
+
+    @Test
     void checkMethodAdd() {
         controller.add(film);
 
         assertNotNull(film.getId(), "При добавлении фильма не присвоился id");
         assertTrue(controller.getAllFilms().contains(film), "Фильм не добавился в БД");
+        assertTrue(controller.getAddFilms().contains(film.getName().toLowerCase().trim()),
+                "Не добавилось в хранилище добавленных указанное название фильма");
 
         Film duplicate = new Film();
         duplicate.setName(film.getName().toLowerCase());
         duplicate.setDescription("duplicate description");
-        duplicate.setReleaseDate(LocalDate.of(2022, 12, 12));
+        duplicate.setReleaseDate(film.getReleaseDate());
         duplicate.setDuration(120);
 
         DuplicatedDataException e = assertThrows(DuplicatedDataException.class, () -> controller.add(duplicate));
-        assertEquals("Фильм с указанным названием уже добавлен", e.getMessage(),
+        assertEquals("Указанный фильм уже добавлен", e.getMessage(),
                 "Не сработало исключение при добавлении фильма с аналогичным названием");
     }
 
@@ -82,5 +101,54 @@ class FilmControllerTest {
         assertTrue(controller.getAllFilms().stream()
                         .anyMatch(f -> f.getDescription().equalsIgnoreCase("new description")),
                 "В БД не обновилось описание фильма");
+    }
+
+    @Test
+    void checkCurrentStatusSetName() {
+        controller.add(film);
+
+        Film yetFilm = new Film();
+        yetFilm.setName("Test Another Name Film");
+        yetFilm.setDescription("");
+        yetFilm.setReleaseDate(LocalDate.of(2022, 2, 22));
+        yetFilm.setDuration(90);
+        controller.add(yetFilm);
+
+        assertEquals(2, controller.getAddFilms().size(),
+                "Ошибка в количестве добавленных названий фильмов в хранилище");
+        assertTrue(controller.getAddFilms().contains("test name film"),
+                "В хранилище добавленных названий фильмов отсутствует название фильма film");
+        assertTrue(controller.getAddFilms().contains("test another name film"),
+                "В хранилище добавленных названий фильмов отсутствует название фильма yetFilm");
+
+        Film updateFilmTrue = new Film();
+        updateFilmTrue.setId(film.getId());
+        updateFilmTrue.setName("Update name film");
+        updateFilmTrue.setDescription("description update film");
+        updateFilmTrue.setReleaseDate(film.getReleaseDate());
+        updateFilmTrue.setDuration(film.getDuration());
+        controller.update(updateFilmTrue);
+
+        assertEquals(2, controller.getAddFilms().size(),
+                "Ошибка в количестве добавленных названий фильмов в хранилище");
+        assertTrue(controller.getAddFilms().contains("update name film"),
+                "В хранилище добавленных названий фильмов не добавилось новое название film");
+        assertFalse(controller.getAddFilms().contains("test name film"),
+                "В хранилище добавленных названий фильмов не удалилось старое название film");
+
+        Film updateFilmFalse = new Film();
+        updateFilmFalse.setId(yetFilm.getId());
+        updateFilmFalse.setName(" update NAME film ");
+        updateFilmFalse.setDescription("");
+        updateFilmFalse.setReleaseDate(yetFilm.getReleaseDate());
+        updateFilmFalse.setDuration(yetFilm.getDuration());
+
+        DuplicatedDataException e = assertThrows(DuplicatedDataException.class, () -> controller.update(updateFilmFalse));
+        assertEquals("Указанный фильм уже добавлен", e.getMessage(),
+                "Не сработало исключение при обновлении названия фильма, которое уже есть в хранилище используемых");
+        assertTrue(controller.getAllFilms().contains(yetFilm),
+                "При обновлении фильма и указании существующего названия фильма данные обновились");
+        assertTrue(controller.getAddFilms().contains("test another name film"),
+                "В хранилище добавленных фильмов изменилось название при обновлении фильма");
     }
 }

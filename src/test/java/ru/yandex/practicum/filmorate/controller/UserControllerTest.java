@@ -23,12 +23,32 @@ class UserControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller.getAllUsers().clear();
+        controller.getUsers().clear();
+        controller.getRegisteredEmail().clear();
         user = new User();
         user.setEmail("TesT@mail.com");
         user.setLogin("login");
         user.setName("test name");
         user.setBirthday(LocalDate.of(2000, 1, 10));
+    }
+
+    @Test
+    void checkMethodGetAllUsers() {
+        controller.add(user);
+
+        User yetUser = new User();
+        yetUser.setEmail("somemail@gmail.com");
+        yetUser.setLogin("anotherLogin");
+        yetUser.setName("my name");
+        yetUser.setBirthday(LocalDate.of(2010, 10, 1));
+        controller.add(yetUser);
+
+        assertEquals(2, controller.getAllUsers().size(),
+                "Ошибка в количестве добавленных пользователей");
+        assertTrue(controller.getAllUsers().contains(user),
+                "При получении списка пользователей отсутствует user");
+        assertTrue(controller.getAllUsers().contains(yetUser),
+                "При получении списка пользователей отсутствует yetUser");
     }
 
     @Test
@@ -39,6 +59,8 @@ class UserControllerTest {
         assertNotNull(user.getId(), "При добавлении пользователя не присвоился id");
         assertTrue(controller.getAllUsers().contains(user), "Пользователь не добавился в БД");
         assertEquals(user.getLogin(), user.getName(), "При пустом имени пользователя не добавился логин");
+        assertTrue(controller.getRegisteredEmail().contains(user.getEmail().toLowerCase().trim()),
+                "Не добавилась в список используемых указанная электронная почта пользователя");
 
         User duplicate = new User();
         duplicate.setEmail(user.getEmail().toLowerCase());
@@ -74,6 +96,7 @@ class UserControllerTest {
                 "Не сработало исключение при обновлении пользователя с указанием несуществующего id");
 
         updateUser.setId(user.getId());
+        updateUser.setName(" ");
         controller.update(updateUser);
 
         assertEquals(1, controller.getAllUsers().size(), "Изменилось количество в БД");
@@ -84,5 +107,56 @@ class UserControllerTest {
         assertTrue(controller.getAllUsers().stream()
                         .anyMatch(u -> u.getLogin().equalsIgnoreCase("newUserLogin")),
                 "В БД не обновился логин пользователя");
+        assertEquals(updateUser.getLogin(), updateUser.getName(),
+                "При пустом имени пользователя не добавился логин");
+    }
+
+    @Test
+    void checkCurrentStatusSetEmail() {
+        controller.add(user);
+
+        User yetUser = new User();
+        yetUser.setEmail("SomeMail@gmail.com");
+        yetUser.setLogin("anotherLogin");
+        yetUser.setName("my name");
+        yetUser.setBirthday(LocalDate.of(2010, 10, 1));
+        controller.add(yetUser);
+
+        assertEquals(2, controller.getRegisteredEmail().size(),
+                "Ошибка в количестве используемых электронных почт в хранилище");
+        assertTrue(controller.getRegisteredEmail().contains("test@mail.com"),
+                "В хранилище используемых электронных почт отсутствует данные пользователя user");
+        assertTrue(controller.getRegisteredEmail().contains("somemail@gmail.com"),
+                "В хранилище используемых электронных почт отсутствует данные пользователя yetUser");
+
+        User updateUserTrue = new User();
+        updateUserTrue.setId(user.getId());
+        updateUserTrue.setEmail("updateMail@box.ru");
+        updateUserTrue.setLogin(user.getLogin());
+        updateUserTrue.setName(user.getName());
+        updateUserTrue.setBirthday(user.getBirthday());
+        controller.update(updateUserTrue);
+
+        assertEquals(2, controller.getRegisteredEmail().size(),
+                "Ошибка в количестве используемых электронных почт в хранилище");
+        assertTrue(controller.getRegisteredEmail().contains("updatemail@box.ru"),
+                "В хранилище используемых почт не добавилась новая информация о пользователе user");
+        assertFalse(controller.getRegisteredEmail().contains("test@mail.com"),
+                "В хранилище используемых почт не удалилась старая информация о пользователе user");
+
+        User updateUserFalse = new User();
+        updateUserFalse.setId(yetUser.getId());
+        updateUserFalse.setEmail("UPDATEmail@box.ru ");
+        updateUserFalse.setLogin(yetUser.getLogin());
+        updateUserFalse.setName(yetUser.getName());
+        updateUserFalse.setBirthday(yetUser.getBirthday());
+
+        DuplicatedDataException e = assertThrows(DuplicatedDataException.class, () -> controller.update(updateUserFalse));
+        assertEquals("Пользователь с указанной электронной почтой уже зарегистрирован", e.getMessage(),
+                "Не сработало исключение при обновлении пользователя с аналогичной электронной почтой");
+        assertTrue(controller.getAllUsers().contains(yetUser),
+                "При обновлении пользователя и указании существующей электронной почты данные обновились");
+        assertTrue(controller.getRegisteredEmail().contains("somemail@gmail.com"),
+                "В хранилище используемых почт изменилась почта при обновлении пользователя с используемой почтой");
     }
 }
