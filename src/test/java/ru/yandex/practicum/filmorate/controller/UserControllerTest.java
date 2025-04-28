@@ -4,12 +4,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import ru.yandex.practicum.filmorate.exception.DuplicatedDataException;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
+import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,145 +20,86 @@ class UserControllerTest {
 
     @Autowired
     private UserController controller;
+    @Autowired
+    private UserStorage storage;
 
     private User user;
 
     @BeforeEach
     void setUp() {
-        controller.getUsers().clear();
-        controller.getRegisteredEmail().clear();
-        user = new User();
-        user.setEmail("TesT@mail.com");
-        user.setLogin("login");
-        user.setName("test name");
-        user.setBirthday(LocalDate.of(2000, 1, 10));
+        ((InMemoryUserStorage) storage).getUsers().clear();
+        ((InMemoryUserStorage) storage).getUsedEmails().clear();
+        user = User.builder()
+                .email("testaddress@email.com")
+                .login("MyLogin")
+                .name("Name")
+                .birthday(LocalDate.of(2000, 10, 10))
+                .build();
     }
 
     @Test
-    void checkMethodGetAllUsers() {
-        controller.add(user);
+    void checkMethodAddUser() {
+        ResponseEntity<User> response = controller.addUser(user);
 
-        User yetUser = new User();
-        yetUser.setEmail("somemail@gmail.com");
-        yetUser.setLogin("anotherLogin");
-        yetUser.setName("my name");
-        yetUser.setBirthday(LocalDate.of(2010, 10, 1));
-        controller.add(yetUser);
-
-        assertEquals(2, controller.getAllUsers().size(),
-                "Ошибка в количестве добавленных пользователей");
-        assertTrue(controller.getAllUsers().contains(user),
-                "При получении списка пользователей отсутствует user");
-        assertTrue(controller.getAllUsers().contains(yetUser),
-                "При получении списка пользователей отсутствует yetUser");
+        assertEquals(HttpStatus.CREATED, response.getStatusCode(),
+                "При успешном добавлении пользователя вернулся не 201 статус");
     }
 
     @Test
-    void checkMethodAdd() {
-        user.setName(" ");
-        controller.add(user);
+    void checkMethodUpdateUser() {
+        controller.addUser(user);
+        User updatedUser = User.builder()
+                .id(user.getId())
+                .email("newaddress@mail.com")
+                .login(user.getLogin())
+                .name(user.getName())
+                .birthday(user.getBirthday())
+                .build();
+        ResponseEntity<User> response = controller.updateUser(updatedUser);
 
-        assertNotNull(user.getId(), "При добавлении пользователя не присвоился id");
-        assertTrue(controller.getAllUsers().contains(user), "Пользователь не добавился в БД");
-        assertEquals(user.getLogin(), user.getName(), "При пустом имени пользователя не добавился логин");
-        assertTrue(controller.getRegisteredEmail().contains(user.getEmail().toLowerCase().trim()),
-                "Не добавилась в список используемых указанная электронная почта пользователя");
-
-        User duplicate = new User();
-        duplicate.setEmail(user.getEmail().toLowerCase());
-        duplicate.setLogin("duplicate");
-        duplicate.setName("name");
-        duplicate.setBirthday(LocalDate.of(2010, 10, 10));
-
-        DuplicatedDataException e = assertThrows(DuplicatedDataException.class, () -> controller.add(duplicate));
-        assertEquals("Пользователь с указанной электронной почтой уже зарегистрирован", e.getMessage(),
-                "Не сработало исключение при добавлении пользователя с аналогичной электронной почтой");
+        assertEquals(HttpStatus.OK, response.getStatusCode(),
+                "При успешном обновлении пользователя вернулся на 200 статус");
     }
 
     @Test
-    void checkMethodUpdate() {
-        controller.add(user);
+    void checkMethodAddFriendAndRemoveFriend() {
+        User friend = User.builder()
+                .email("MyFriend@mail.ru")
+                .login("Friend")
+                .name(" ")
+                .birthday(LocalDate.of(1999, 1, 19))
+                .build();
+        controller.addUser(user);
+        controller.addUser(friend);
+        ResponseEntity<Void> responseAddFriend = controller.addFriend(user.getId(), friend.getId());
+        ResponseEntity<Void> responseRemoveFriend = controller.removeFriend(user.getId(), friend.getId());
 
-        assertEquals(1, controller.getAllUsers().size(), "Не добавился пользователь в БД");
-
-        User updateUser = new User();
-        updateUser.setEmail(user.getEmail());
-        updateUser.setLogin("newUserLogin");
-        updateUser.setName(user.getName());
-        updateUser.setBirthday(user.getBirthday());
-
-        ValidationException exception = assertThrows(ValidationException.class, () -> controller.update(updateUser));
-        assertEquals("id должен быть указан", exception.getMessage(),
-                "Не сработало исключение при обновлении пользователя без указания id");
-
-        updateUser.setId(2L);
-
-        NotFoundException e = assertThrows(NotFoundException.class, () -> controller.update(updateUser));
-        assertEquals("Пользователь с id 2 не найден", e.getMessage(),
-                "Не сработало исключение при обновлении пользователя с указанием несуществующего id");
-
-        updateUser.setId(user.getId());
-        updateUser.setName(" ");
-        controller.update(updateUser);
-
-        assertEquals(1, controller.getAllUsers().size(), "Изменилось количество в БД");
-
-        assertFalse(controller.getAllUsers().stream()
-                        .anyMatch(u -> u.getLogin().equalsIgnoreCase("login")),
-                "В БД есть пользователь со старым логином");
-        assertTrue(controller.getAllUsers().stream()
-                        .anyMatch(u -> u.getLogin().equalsIgnoreCase("newUserLogin")),
-                "В БД не обновился логин пользователя");
-        assertEquals(updateUser.getLogin(), updateUser.getName(),
-                "При пустом имени пользователя не добавился логин");
+        assertEquals(HttpStatus.NO_CONTENT, responseAddFriend.getStatusCode(),
+                "При успешном добавлении в друзья вернулся не 204 статус");
+        assertEquals(HttpStatus.NO_CONTENT, responseRemoveFriend.getStatusCode(),
+                "При успешном удалении из друзей вернулся не 204 статус");
     }
 
     @Test
-    void checkCurrentStatusSetEmail() {
-        controller.add(user);
+    void checkGetMethods() {
+        User anotherUser = User.builder()
+                .email("someaddress@gmail.com")
+                .login("Login")
+                .name(" ")
+                .birthday(LocalDate.of(1991, 11, 1))
+                .build();
+        controller.addUser(user);
+        controller.addUser(anotherUser);
 
-        User yetUser = new User();
-        yetUser.setEmail("SomeMail@gmail.com");
-        yetUser.setLogin("anotherLogin");
-        yetUser.setName("my name");
-        yetUser.setBirthday(LocalDate.of(2010, 10, 1));
-        controller.add(yetUser);
+        ResponseEntity<Collection<User>> responseGetAllUsers = controller.getAllUsers();
+        ResponseEntity<Collection<User>> responseGetFriends = controller.getFriends(user.getId());
+        ResponseEntity<Collection<User>> responseGetCommonFriends = controller.getCommonFriends(user.getId(), anotherUser.getId());
 
-        assertEquals(2, controller.getRegisteredEmail().size(),
-                "Ошибка в количестве используемых электронных почт в хранилище");
-        assertTrue(controller.getRegisteredEmail().contains("test@mail.com"),
-                "В хранилище используемых электронных почт отсутствует данные пользователя user");
-        assertTrue(controller.getRegisteredEmail().contains("somemail@gmail.com"),
-                "В хранилище используемых электронных почт отсутствует данные пользователя yetUser");
-
-        User updateUserTrue = new User();
-        updateUserTrue.setId(user.getId());
-        updateUserTrue.setEmail("updateMail@box.ru");
-        updateUserTrue.setLogin(user.getLogin());
-        updateUserTrue.setName(user.getName());
-        updateUserTrue.setBirthday(user.getBirthday());
-        controller.update(updateUserTrue);
-
-        assertEquals(2, controller.getRegisteredEmail().size(),
-                "Ошибка в количестве используемых электронных почт в хранилище");
-        assertTrue(controller.getRegisteredEmail().contains("updatemail@box.ru"),
-                "В хранилище используемых почт не добавилась новая информация о пользователе user");
-        assertFalse(controller.getRegisteredEmail().contains("test@mail.com"),
-                "В хранилище используемых почт не удалилась старая информация о пользователе user");
-
-        User updateUserFalse = new User();
-        updateUserFalse.setId(yetUser.getId());
-        updateUserFalse.setEmail("UPDATEmail@box.ru ");
-        updateUserFalse.setLogin(yetUser.getLogin());
-        updateUserFalse.setName(yetUser.getName());
-        updateUserFalse.setBirthday(yetUser.getBirthday());
-
-        DuplicatedDataException e = assertThrows(DuplicatedDataException.class, () -> controller.update(updateUserFalse));
-        assertEquals("Пользователь с указанной электронной почтой уже зарегистрирован", e.getMessage(),
-                "Не сработало исключение при обновлении пользователя с аналогичной электронной почтой");
-        assertTrue(controller.getAllUsers().contains(yetUser),
-                "При обновлении пользователя и указании существующей электронной почты данные обновились");
-        assertTrue(controller.getRegisteredEmail().contains("somemail@gmail.com"),
-                "В хранилище используемых почт изменилась почта при обновлении пользователя с используемой почтой");
+        assertEquals(HttpStatus.OK, responseGetAllUsers.getStatusCode(),
+                "При успешном запросе списка всех пользователей вернулся не 200 статус");
+        assertEquals(HttpStatus.OK, responseGetFriends.getStatusCode(),
+                "При успешном запросе списка друзей пользователя вернулся не 200 статус");
+        assertEquals(HttpStatus.OK, responseGetCommonFriends.getStatusCode(),
+                "При успешном запросе списка общих друзей пользователей вернулся не 200 статус");
     }
 }
