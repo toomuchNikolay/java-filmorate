@@ -29,13 +29,14 @@ public class FilmService {
             log.warn("Попытка добавить фильм {} с заполненным списком лайков", film);
             throw new ValidationException("У нового фильма список лайков должен быть пустой");
         }
-        return filmStorage.addFilm(film);
+        Film added = filmStorage.addFilm(film);
+        log.info("Фильм {} добавлен под id {}", added, added.getId());
+        return added;
     }
 
     public Film updateFilm(Film film) {
         log.debug("Попытка обновить фильм {}", film);
-        Film oldFilm = filmStorage.findFilmById(film.getId())
-                .orElseThrow(() -> new NotFoundException("Фильм с id " + film.getId() + " не найден"));
+        Film oldFilm = getFilmById(film.getId());
         String nameOld = oldFilm.getName().toLowerCase().trim();
         String nameNew = film.getName().toLowerCase().trim();
         if (!nameNew.equals(nameOld)) {
@@ -44,12 +45,16 @@ public class FilmService {
                 throw new DuplicatedDataException("Фильм с указанным названием уже добавлен");
             }
         }
-        return filmStorage.updateFilm(film);
+        Film updated = filmStorage.updateFilm(film);
+        log.info("Информация о фильме {} обновлена", updated);
+        return updated;
     }
 
     public Collection<Film> getAllFilms() {
         log.debug("Попытка получить список всех фильмов");
-        return filmStorage.getAllFilms();
+        Collection<Film> result = filmStorage.getAllFilms();
+        log.info("Список всех фильмов в размере {} получен", result.size());
+        return result;
     }
 
     public Film getFilmById(Long id) {
@@ -62,11 +67,7 @@ public class FilmService {
 
     public void addLike(Long id, Long userId) {
         log.debug("Попытка добавить лайк пользователем {} фильму {}", userId, id);
-        Film film = filmStorage.findFilmById(id)
-                .orElseThrow(() -> {
-                    log.error("Фильм с id {} не найден", id);
-                    return new NotFoundException("Фильм с id " + id + " не найден");
-                });
+        Film film = getFilmById(id);
         User user = userService.getUserById(userId);
         if (film.getLikes().contains(userId)) {
             log.warn("Попытка пользователя {} повторно добавить лайк фильму {}", userId, id);
@@ -79,14 +80,10 @@ public class FilmService {
 
     public void removeLike(Long id, Long userId) {
         log.debug("Попытка удалить лайк пользователем {} у фильма {}", userId, id);
-        Film film = filmStorage.findFilmById(id)
-                .orElseThrow(() -> {
-                    log.error("Фильм с id {} не найден", id);
-                    return new NotFoundException("Фильм с id " + id + " не найден");
-                });
+        Film film = getFilmById(id);
         User user = userService.getUserById(userId);
         if (!film.getLikes().contains(userId)) {
-            log.warn("Попытка пользователя {} удалить отсутствующий лайк фильму {}", userId, id);
+            log.error("Попытка пользователя {} удалить отсутствующий лайк фильму {}", userId, id);
             throw new NotFoundException("У фильма " + id + " отсутствует лайк от пользователя " + userId);
         }
         film.getLikes().remove(user.getId());
@@ -96,6 +93,8 @@ public class FilmService {
 
     public Collection<Film> getPopularFilms(Integer count) {
         log.debug("Попытка получить рейтинговый список фильмов");
-        return filmStorage.getRatingFilms(count);
+        Collection<Film> result = filmStorage.getRatingFilms(count);
+        log.info("Рейтинговый список фильмов получен");
+        return result;
     }
 }

@@ -32,13 +32,14 @@ public class UserService {
             user.setName(user.getLogin());
             log.info("Имя пользователя не указано, будет использоваться логин {}", user.getLogin());
         }
-        return storage.addUser(user);
+        User added = storage.addUser(user);
+        log.info("Пользователь {} добавлен под id {}", added, added.getId());
+        return added;
     }
 
     public User updateUser(User user) {
         log.debug("Попытка обновить пользователя {}", user);
-        User oldUser = storage.findUserById(user.getId())
-                .orElseThrow(() -> new NotFoundException("Пользователь с id " + user.getId() + " не найден"));
+        User oldUser = getUserById(user.getId());
         String mailOld = oldUser.getEmail().toLowerCase().trim();
         String mailNew = user.getEmail().toLowerCase().trim();
         if (!mailNew.equals(mailOld)) {
@@ -51,12 +52,16 @@ public class UserService {
             user.setName(user.getLogin());
             log.info("Имя пользователя не указано, будет использоваться логин {}", user.getLogin());
         }
-        return storage.updateUser(user);
+        User updated = storage.updateUser(user);
+        log.info("Информация о пользователе {} обновлена", updated);
+        return updated;
     }
 
     public Collection<User> getAllUsers() {
         log.debug("Попытка получить список всех пользователей");
-        return storage.getAllUsers();
+        Collection<User> result = storage.getAllUsers();
+        log.info("Список всех пользователей в размере {} получен", result.size());
+        return result;
     }
 
     public User getUserById(Long id) {
@@ -68,18 +73,10 @@ public class UserService {
     }
 
     public void addFriend(Long id, Long friendId) {
-        log.debug("Попытка добавить пользователем {} в друзья {}", id, friendId);
+        log.debug("Попытка пользователя {} добавить в список друзей пользователя {}", id, friendId);
         validate(id, friendId);
-        User user = storage.findUserById(id)
-                .orElseThrow(() -> {
-                    log.error("Пользователь с id {} не найден", id);
-                    return new NotFoundException("Пользователь с id " + id + " не найден");
-                });
-        User friend = storage.findUserById(friendId)
-                .orElseThrow(() -> {
-                    log.error("Пользователь с id {} не найден", friendId);
-                    return new NotFoundException("Пользователь с id " + friendId + " не найден");
-                });
+        User user = getUserById(id);
+        User friend = getUserById(friendId);
         if (user.getFriends().contains(friendId)) {
             log.warn("Попытка добавить уже присутствующего в друзьях пользователя {}", friendId);
             throw new DuplicatedDataException("Пользователь " + friendId + " уже добавлен в друзья");
@@ -93,22 +90,10 @@ public class UserService {
     }
 
     public void removeFriend(Long id, Long friendId) {
+        log.debug("Попытка пользователя {} удалить из списка друзей пользователя {}", id, friendId);
         validate(id, friendId);
-        User user = storage.findUserById(id)
-                .orElseThrow(() -> {
-                    log.error("Пользователь с id {} не найден", id);
-                    return new NotFoundException("Пользователь с id " + id + " не найден");
-                });
-        User friend = storage.findUserById(friendId)
-                .orElseThrow(() -> {
-                    log.error("Пользователь с id {} не найден", friendId);
-                    return new NotFoundException("Пользователь с id " + friendId + " не найден");
-                });
-//        С данной проверкой падает тест DELETE Not friend remove
-//        Не ясна логика - если пользователь в друзьях не найден, то надо вернуть 200 или 204
-//        if (!user.getFriends().contains(friendId)) {
-//            throw new NotFoundException("Пользователь " + friendId + " не найден в списке друзей");
-//        }
+        User user = getUserById(id);
+        User friend = getUserById(friendId);
         user.getFriends().remove(friendId);
         storage.updateUser(user);
         log.info("Пользователь {} удален из списка друзей пользователя {}", friendId, id);
@@ -118,38 +103,30 @@ public class UserService {
     }
 
     public Collection<User> getFriends(Long id) {
-        User user = storage.findUserById(id)
-                .orElseThrow(() -> {
-                    log.error("Пользователь с id {} не найден", id);
-                    return new NotFoundException("Пользователь с id " + id + " не найден");
-                });
         log.debug("Попытка получить список друзей пользователя {}", id);
-        return user.getFriends().stream()
+        User user = getUserById(id);
+        Collection<User> result = user.getFriends().stream()
                 .map(storage::findUserById)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .toList();
+        log.info("Список друзей пользователя {} в размере {} получен", id, result.size());
+        return result;
     }
 
     public Collection<User> getCommonFriends(Long id, Long otherId) {
-        validate(id, otherId);
-        User user = storage.findUserById(id)
-                .orElseThrow(() -> {
-                    log.error("Пользователь с id {} не найден", id);
-                    return new NotFoundException("Пользователь с id " + id + " не найден");
-                });
-        User friend = storage.findUserById(otherId)
-                .orElseThrow(() -> {
-                    log.error("Пользователь с id {} не найден", otherId);
-                    return new NotFoundException("Пользователь с id " + otherId + " не найден");
-                });
         log.debug("Попытка получить список общих друзей пользователя {} с пользователем {}", id, otherId);
-        return user.getFriends().stream()
+        validate(id, otherId);
+        User user = getUserById(id);
+        User friend = getUserById(otherId);
+        Collection<User> result = user.getFriends().stream()
                 .filter(friend.getFriends()::contains)
                 .map(storage::findUserById)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .toList();
+        log.info("Список общих друзей пользователей {} и {} в размере {} получен", id, otherId, result.size());
+        return result;
     }
 
     private void validate(Long userId, Long friendId) {

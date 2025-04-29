@@ -1,5 +1,6 @@
 package ru.yandex.practicum.filmorate.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,9 +13,6 @@ import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Film.
- */
 @Data
 @Builder
 @AllArgsConstructor
@@ -49,5 +47,6 @@ public class Film {
 
     /** Список пользователей, оценивших фильм. */
     @Builder.Default
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private Set<Long> likes = new HashSet<>();
 }

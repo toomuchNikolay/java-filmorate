@@ -3,15 +3,14 @@ package ru.yandex.practicum.filmorate.controller;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
 import ru.yandex.practicum.filmorate.validator.ValidationGroups;
 
-import java.net.URI;
 import java.util.*;
 
 @RestController
@@ -22,20 +21,19 @@ public class UserController {
     private final UserService service;
 
     @PostMapping
-    public ResponseEntity<User> addUser(@Validated(ValidationGroups.PostValidationGroup.class) @RequestBody User user) {
+    public ResponseEntity<User> addUser(
+            @Validated(ValidationGroups.PostValidationGroup.class) @RequestBody User user
+    ) {
         log.debug("Получен запрос на добавление пользователя {}", user);
         User added = service.addUser(user);
         log.debug("Запрос на добавление пользователя успешно обработан");
-        URI uri = ServletUriComponentsBuilder
-                .fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(added.getId())
-                .toUri();
-        return ResponseEntity.created(uri).body(added);
+        return ResponseEntity.status(HttpStatus.CREATED).body(added);
     }
 
     @PutMapping
-    public ResponseEntity<User> updateUser(@Validated(ValidationGroups.PutValidationGroup.class) @RequestBody User user) {
+    public ResponseEntity<User> updateUser(
+            @Validated(ValidationGroups.PutValidationGroup.class) @RequestBody User user
+    ) {
         log.debug("Получен запрос на обновление пользователя с id {}", user.getId());
         User updated = service.updateUser(user);
         log.debug("Запрос на обновление пользователя успешно обработан");
@@ -73,7 +71,9 @@ public class UserController {
     }
 
     @GetMapping("/{id}/friends")
-    public ResponseEntity<Collection<User>> getFriends(@PathVariable @Positive(message = "id должен быть больше нуля") Long id) {
+    public ResponseEntity<Collection<User>> getFriends(
+            @PathVariable @Positive(message = "id должен быть больше нуля") Long id
+    ) {
         log.debug("Получен запрос на формирование списка друзей пользователя {}", id);
         Collection<User> friends = service.getFriends(id);
         log.debug("Запрос на формирование списка друзей пользователя успешно обработан");

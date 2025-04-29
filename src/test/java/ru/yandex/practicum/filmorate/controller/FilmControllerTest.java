@@ -6,10 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.annotation.DirtiesContext;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
-import ru.yandex.practicum.filmorate.storage.film.InMemoryFilmStorage;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -17,6 +17,7 @@ import java.util.Collection;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class FilmControllerTest {
 
     @Autowired
@@ -36,9 +37,6 @@ class FilmControllerTest {
 
     @BeforeEach
     void setUp() {
-        ((InMemoryFilmStorage) storage).getFilms().clear();
-        ((InMemoryFilmStorage) storage).getAddedFilms().clear();
-        ((InMemoryFilmStorage) storage).getFilmsRating().clear();
         film = Film.builder()
                 .name("Test name film")
                 .description("description film")
