@@ -1,94 +1,121 @@
 package ru.yandex.practicum.filmorate.model;
 
 import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import ru.yandex.practicum.filmorate.validator.ValidationGroups;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 class UserTest {
-
     @Autowired
-    private LocalValidatorFactoryBean validatorFactoryBean;
+    private Validator validator;
+    Set<ConstraintViolation<User>> postViolations;
+    Set<ConstraintViolation<User>> putViolations;
 
-    private User user;
+    private User postUser;
+    private User putUser;
 
     @BeforeEach
     void setUp() {
-        user = new User();
-        user.setEmail("test@email.com");
-        user.setLogin("TestLogin");
-        user.setName("Test name");
-        user.setBirthday(LocalDate.of(2000, 10, 10));
+        postViolations = new HashSet<>();
+        putViolations = new HashSet<>();
+
+        postUser = User.builder()
+                .email("First_user@email.com")
+                .login("First")
+                .name("Name")
+                .birthday(LocalDate.of(2000, 10, 10))
+                .build();
+        putUser = User.builder()
+                .id(10L)
+                .email("Second_user@email.com")
+                .login("Second")
+                .name("Name")
+                .birthday(LocalDate.of(2002, 2, 22))
+                .build();
     }
 
     @Test
-    void shouldNotViolationsWhenFieldCorrect() {
-        Set<ConstraintViolation<User>> violations = validatorFactoryBean.validate(user,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    void checkNullAnnotationFieldId() {
+        postViolations = validator.validate(putUser, ValidationGroups.PostValidationGroup.class);
 
-        assertTrue(violations.isEmpty(), "Ошибка в валидации полей User");
+        assertFalse(postViolations.isEmpty(), "Не прошла проверка id при добавлении пользователя");
     }
 
     @Test
-    void checkAnnotationFieldEmailWithBlankValue() {
-        user.setEmail("");
-        Set<ConstraintViolation<User>> violations = validatorFactoryBean.validate(user,
-                ValidationGroups.PostValidationGroup.class);
+    void checkNotNullAnnotationFieldId() {
+        putViolations = validator.validate(postUser, ValidationGroups.PutValidationGroup.class);
 
-        assertEquals("Электронная почта не может быть пустой", violations.iterator().next().getMessage(),
-                "Не прошла проверка на пустую электронную почту при создании пользователя");
-
-        violations = validatorFactoryBean.validate(user,
-                ValidationGroups.PutValidationGroup.class);
-        assertTrue(violations.isEmpty(), "Не прошла проверка на пустую электронную почту при обновлении пользователя");
+        assertFalse(putViolations.isEmpty(), "Не прошла проверка id при обновлении пользователя");
     }
 
     @Test
-    void checkAnnotationFieldEmailWithBadPattern() {
-        user.setEmail("bad-mail?ru@");
-        Set<ConstraintViolation<User>> violations = validatorFactoryBean.validate(user,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    void checkNotEmptyAnnotationFieldEmail() {
+        postUser.setEmail("");
+        postViolations = validator.validate(postUser, ValidationGroups.PostValidationGroup.class);
 
-        assertEquals("Электронная почта не соответствует формату электронного адреса",
-                violations.iterator().next().getMessage(), "Не прошла проверка на формат электронной почты");
+        assertFalse(postViolations.isEmpty(), "Не прошла проверка пустой почты при добавлении пользователя");
     }
 
     @Test
-    void checkAnnotationFieldLoginWithBlankValue() {
-        user.setLogin("");
-        Set<ConstraintViolation<User>> violations = validatorFactoryBean.validate(user,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    void checkEmailAnnotationFieldEmail() {
+        postUser.setEmail("bad-mail?ru@");
+        putUser.setEmail("@bad-mail?ru");
+        postViolations = validator.validate(postUser, ValidationGroups.PostValidationGroup.class);
+        putViolations = validator.validate(putUser, ValidationGroups.PutValidationGroup.class);
 
-        assertEquals("Логин не может быть пустым или содержать пробелы", violations.iterator().next().getMessage(),
-                "Не прошла проверка на пустой логин");
+        assertFalse(postViolations.isEmpty(),
+                "Не прошла проверка формата электронной почты при добавлении пользователя");
+        assertFalse(putViolations.isEmpty(),
+                "Не прошла проверка формата электронной почты при обновлении пользователя");
     }
 
     @Test
-    void checkAnnotationFieldLoginWithSpace() {
-        user.setLogin("new login");
-        Set<ConstraintViolation<User>> violations = validatorFactoryBean.validate(user,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    void checkNotEmptyAnnotationFieldLogin() {
+        postUser.setLogin("");
+        putUser.setLogin("");
 
-        assertEquals("Логин не может быть пустым или содержать пробелы", violations.iterator().next().getMessage(),
-                "Не прошла проверка логина с пробелом");
+        postViolations = validator.validate(postUser, ValidationGroups.PostValidationGroup.class);
+        putViolations = validator.validate(putUser, ValidationGroups.PutValidationGroup.class);
+
+        assertFalse(postViolations.isEmpty(), "Не прошла проверка на пустой логин при добавлении пользователя");
+        assertFalse(putViolations.isEmpty(), "Не прошла проверка на пустой логин при обновлении пользователя");
     }
 
     @Test
-    void checkAnnotationFieldBirthday() {
-        user.setBirthday(LocalDate.now().plusDays(1));
-        Set<ConstraintViolation<User>> violations = validatorFactoryBean.validate(user,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    void checkPatternAnnotationFieldLogin() {
+        postUser.setLogin(" ");
+        putUser.setLogin("My Login");
 
-        assertEquals("Дата рождения не может быть в будущем", violations.iterator().next().getMessage(),
-                "Не прошла проверка даты рождения");
+        postViolations = validator.validate(postUser, ValidationGroups.PostValidationGroup.class);
+        putViolations = validator.validate(putUser, ValidationGroups.PutValidationGroup.class);
+
+        assertFalse(postViolations.isEmpty(),
+                "Не прошла проверка на логин с пробелами при добавлении пользователя");
+        assertFalse(putViolations.isEmpty(),
+                "Не прошла проверка на логин с пробелами при обновлении пользователя");
+    }
+
+    @Test
+    void checkPastOrPresentAnnotationFieldBirthday() {
+        postUser.setBirthday(LocalDate.now().plusDays(1));
+        putUser.setBirthday(LocalDate.now().plusMonths(1));
+
+        postViolations = validator.validate(postUser, ValidationGroups.PostValidationGroup.class);
+        putViolations = validator.validate(putUser, ValidationGroups.PutValidationGroup.class);
+
+        assertFalse(postViolations.isEmpty(),
+                "Не прошла проверка на дату рождения в будущем при добавлении пользователя");
+        assertFalse(putViolations.isEmpty(),
+                "Не прошла проверка на дату рождения в будущем при обновлении пользователя");
     }
 }

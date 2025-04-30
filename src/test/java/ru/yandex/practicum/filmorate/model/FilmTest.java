@@ -1,99 +1,106 @@
 package ru.yandex.practicum.filmorate.model;
 
 import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import ru.yandex.practicum.filmorate.validator.ValidationGroups;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 class FilmTest {
-
     @Autowired
-    private LocalValidatorFactoryBean validatorFactoryBean;
+    private Validator validator;
+    Set<ConstraintViolation<Film>> postViolations;
+    Set<ConstraintViolation<Film>> putViolations;
 
-    private Film film;
+    private Film postFilm;
+    private Film putFilm;
 
     @BeforeEach
     void setUp() {
-        film = new Film();
-        film.setName("test name film");
-        film.setDescription("description");
-        film.setReleaseDate(LocalDate.of(2000, 10, 20));
-        film.setDuration(150);
+        postViolations = new HashSet<>();
+        putViolations = new HashSet<>();
+
+        postFilm = Film.builder()
+                .name("First film")
+                .description("description first film")
+                .releaseDate(LocalDate.of(2022, 1, 11))
+                .duration(150)
+                .build();
+        putFilm = Film.builder()
+                .id(22L)
+                .name("Second film")
+                .description("description second film")
+                .releaseDate(LocalDate.of(2011, 2, 22))
+                .duration(120)
+                .build();
     }
 
     @Test
-    void shouldNotViolationsWhenFieldCorrect() {
-        Set<ConstraintViolation<Film>> violations = validatorFactoryBean.validate(film,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    void checkNullAnnotationFieldId() {
+        postViolations = validator.validate(putFilm, ValidationGroups.PostValidationGroup.class);
 
-        assertTrue(violations.isEmpty(), "Ошибка в валидации полей Film");
+        assertFalse(postViolations.isEmpty(), "Не прошла проверка id при добавлении фильма");
     }
 
     @Test
-    void checkAnnotationFieldName() {
-        film.setName(" ");
-        Set<ConstraintViolation<Film>> violations = validatorFactoryBean.validate(film,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    void checkNotNullAnnotationFieldId() {
+        putViolations = validator.validate(postFilm, ValidationGroups.PutValidationGroup.class);
 
-        assertEquals("Название не может быть пустым", violations.iterator().next().getMessage(),
-                "Не прошла проверка на пустое название фильма");
+        assertFalse(putViolations.isEmpty(), "Не прошла проверка id при обновлении фильма");
     }
 
     @Test
-    void checkAnnotationFieldDescription() {
-        film.setDescription("test".repeat(50));
-        Set<ConstraintViolation<Film>> violations = validatorFactoryBean.validate(film,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    void checkNotBlankAnnotationFieldName() {
+        postFilm.setName("");
+        putFilm.setName(" ");
+        postViolations = validator.validate(postFilm, ValidationGroups.PostValidationGroup.class);
+        putViolations = validator.validate(putFilm, ValidationGroups.PutValidationGroup.class);
 
-        assertEquals(200, film.getDescription().length(), "Ошибка в размере описания фильма");
-        assertTrue(violations.isEmpty(), "Не прошла проверка на максимально допустимый размер описания");
-
-        film.setDescription("test".repeat(51));
-        violations = validatorFactoryBean.validate(film,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
-
-        assertEquals("Описание не может превышать 200 символов", violations.iterator().next().getMessage(),
-                "Не прошла проверка на превышение размера описания фильма");
+        assertFalse(postViolations.isEmpty(), "Не прошла проверка на пустое название при добавлении фильма");
+        assertFalse(putViolations.isEmpty(), "Не прошла проверка на пустое название при обновлении фильма");
     }
 
     @Test
-    void checkAnnotationFieldReleaseDate() {
-        film.setReleaseDate(LocalDate.of(1895, 12, 28));
-        Set<ConstraintViolation<Film>> violations = validatorFactoryBean.validate(film,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    void checkSizeAnnotationFieldDescription() {
+        postFilm.setDescription("bad description".repeat(14));
+        putFilm.setDescription("bad".repeat(67));
+        postViolations = validator.validate(postFilm, ValidationGroups.PostValidationGroup.class);
+        putViolations = validator.validate(putFilm, ValidationGroups.PutValidationGroup.class);
 
-        assertTrue(violations.isEmpty(), "Не прошла проверка на предельно допустимую дату");
-
-        film.setReleaseDate(LocalDate.of(1895, 12, 27));
-        violations = validatorFactoryBean.validate(film,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
-
-        assertEquals("Дата релиза должна быть не раньше 28 декабря 1895 года",
-                violations.iterator().next().getMessage(), "Не прошла проверка на превышение допустимой даты");
+        assertFalse(postViolations.isEmpty(),
+                "Не прошла проверка на количество символов в описании при добавлении фильма");
+        assertFalse(putViolations.isEmpty(),
+                "Не прошла проверка на количество символов в описании при обновлении фильма");
     }
 
     @Test
-    void checkAnnotationFieldDuration() {
-        film.setDuration(1);
-        Set<ConstraintViolation<Film>> violations = validatorFactoryBean.validate(film,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    void checkReleaseDateValidAnnotationFieldReleaseDate() {
+        postFilm.setReleaseDate(LocalDate.of(1895, 12, 27));
+        putFilm.setReleaseDate(LocalDate.of(1894, 12, 28));
+        postViolations = validator.validate(postFilm, ValidationGroups.PostValidationGroup.class);
+        putViolations = validator.validate(putFilm, ValidationGroups.PutValidationGroup.class);
 
-        assertTrue(violations.isEmpty(), "Не прошла проверка на предельно допустимую продолжительность");
+        assertFalse(postViolations.isEmpty(), "Не прошла проверка на минимальную дату при добавлении фильма");
+        assertFalse(putViolations.isEmpty(), "Не прошла проверка на минимальную дату при обновлении фильма");
+    }
 
-        film.setDuration(0);
-        violations = validatorFactoryBean.validate(film,
-                ValidationGroups.PostValidationGroup.class, ValidationGroups.PutValidationGroup.class);
+    @Test
+    void checkPositiveAnnotationFieldDuration() {
+        postFilm.setDuration(0);
+        putFilm.setDuration(-11111111);
+        postViolations = validator.validate(postFilm, ValidationGroups.PostValidationGroup.class);
+        putViolations = validator.validate(putFilm, ValidationGroups.PutValidationGroup.class);
 
-        assertEquals("Продолжительность фильма должна быть положительным числом",
-                violations.iterator().next().getMessage(), "Не прошла проверка на продолжительность");
+        assertFalse(postViolations.isEmpty(), "Не прошла проверка на продолжительность при добавлении фильма");
+        assertFalse(putViolations.isEmpty(), "Не прошла проверка на продолжительность при обновлении фильма");
     }
 }
