@@ -1,11 +1,13 @@
 package ru.yandex.practicum.filmorate.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.sql.SQLException;
 import java.time.Instant;
 
 @RestControllerAdvice
@@ -37,6 +39,26 @@ public class ErrorHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleException(final Exception e) {
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), e);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ErrorResponse handleDataIntegrity(final DataIntegrityViolationException e) {
+        if (e.getRootCause() != null && e.getRootCause() instanceof SQLException sqlE) {
+            if ("23502".equals(sqlE.getSQLState())) {
+                return buildResponse(HttpStatus.BAD_REQUEST.value(),
+                        new ValidationException("Поле не может быть пустым"));
+            } else if ("23505".equals(sqlE.getSQLState())) {
+                String message = "Запись с указанными данными уже существует";
+                if (sqlE.getMessage().toLowerCase().contains("unique_email")) {
+                    message = "Указанный email уже используется";
+                } else if (sqlE.getMessage().toLowerCase().contains("unique_login")) {
+                    message = "Указанный login уже используется";
+                }
+                return buildResponse(HttpStatus.CONFLICT.value(),
+                        new DuplicatedDataException(message));
+            }
+        }
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), e);
     }
 

@@ -1,31 +1,12 @@
 spring:
-  config:
-    activate:
-      on-profile: default
+  sql:
+    init:
+      mode: ALWAYS
+  datasource:
+    url: jdbc:h2:file:./db/filmorate
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
   main:
     log-startup-info: false
     banner-mode: off
-
-logging:
-  level:
-    ru.yandex.practicum.filmorate: INFO
-    org.zalando.logbook: INFO
-  file:
-    name: logs/log.txt
-  console:
-    enabled: false
-
----
-spring:
-  config:
-    activate:
-      on-profile: dev
-
-logging:
-  level:
-    ru.yandex.practicum.filmorate: DEBUG
-    org.zalando.logbook: TRACE
-  file:
-    enabled: false
-  console:
-    enabled: true

@@ -3,98 +3,106 @@ package ru.yandex.practicum.filmorate.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.filmorate.exception.DuplicatedDataException;
+import ru.yandex.practicum.filmorate.dto.film.FilmDto;
+import ru.yandex.practicum.filmorate.dto.film.NewFilmRequest;
+import ru.yandex.practicum.filmorate.dto.film.UpdateFilmRequest;
+import ru.yandex.practicum.filmorate.dto.genre.GenreDto;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.mapper.FilmMapper;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.FilmGenreStorage;
+import ru.yandex.practicum.filmorate.storage.FilmStorage;
 
 import java.util.Collection;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class FilmService {
     private final FilmStorage filmStorage;
-    private final UserService userService;
+    private final FilmGenreStorage filmGenreStorage;
+    private final MpaService mpaService;
+    private final GenreService genreService;
 
-    public Film addFilm(Film film) {
-        log.debug("Попытка добавить фильм {}", film);
-        if (filmStorage.isUsedName(film.getName())) {
-            log.warn("Попытка добавить дубликат фильма {}", film.getName());
-            throw new DuplicatedDataException("Указанный фильм уже добавлен");
-        }
-        if (!film.getLikes().isEmpty()) {
-            log.warn("Попытка добавить фильм {} с заполненным списком лайков", film);
-            throw new ValidationException("У нового фильма список лайков должен быть пустой");
-        }
-        Film added = filmStorage.addFilm(film);
-        log.info("Фильм {} добавлен под id {}", added, added.getId());
-        return added;
+    public FilmDto addFilm(NewFilmRequest film) {
+        validateMpa(film.getMpa().getId());
+        validateGenre(film.getGenres());
+        Film added = filmStorage.addFilm(FilmMapper.mapToFilm(film));
+        log.debug("Добавлена запись фильма: {}", added);
+        addGenresToFilm(added.getFilmId(), film.getGenres());
+        FilmDto dto = FilmMapper.mapToFilmDto(added);
+        dto.setMpa(mpaService.getMpaById(film.getMpa().getId()));
+        dto.setGenres(getGenresForFilm(added.getFilmId()));
+        return dto;
     }
 
-    public Film updateFilm(Film film) {
-        log.debug("Попытка обновить фильм {}", film);
-        Film oldFilm = getFilmById(film.getId());
-        String nameOld = oldFilm.getName().toLowerCase().trim();
-        String nameNew = film.getName().toLowerCase().trim();
-        if (!nameNew.equals(nameOld)) {
-            if (filmStorage.isUsedName(nameNew)) {
-                log.warn("Попытка добавить дубликат фильма {}", film.getName());
-                throw new DuplicatedDataException("Фильм с указанным названием уже добавлен");
-            }
-        }
-        Film updated = filmStorage.updateFilm(film);
-        log.info("Информация о фильме {} обновлена", updated);
-        return updated;
-    }
-
-    public Collection<Film> getAllFilms() {
-        log.debug("Попытка получить список всех фильмов");
-        Collection<Film> result = filmStorage.getAllFilms();
-        log.info("Список всех фильмов в размере {} получен", result.size());
-        return result;
-    }
-
-    public Film getFilmById(Long id) {
-        return filmStorage.findFilmById(id)
+    public FilmDto updateFilm(UpdateFilmRequest film) {
+        Film findFilm = filmStorage.findFilmById(film.getId())
                 .orElseThrow(() -> {
-                    log.error("Фильм с id {} не найден", id);
-                    return new NotFoundException("Фильм с id " + id + " не найден");
+                    log.error("Попытка обновить несуществующий фильм");
+                    return new NotFoundException("Фильм не найден");
+                });
+        FilmMapper.updateFilmFields(findFilm, film);
+        addGenresToFilm(findFilm.getFilmId(), film.getGenres());
+        Film updated = filmStorage.updateFilm(findFilm);
+        log.debug("Обновлена запись фильма: {}", updated);
+        FilmDto dto = FilmMapper.mapToFilmDto(updated);
+        dto.setGenres(getGenresForFilm(findFilm.getFilmId()));
+        return dto;
+    }
+
+    public Collection<FilmDto> getAllFilms() {
+        return filmStorage.findAllFilms().stream()
+                .map(this::getFilmWithGenres)
+                .toList();
+    }
+
+    public FilmDto getFilmById(Long filmId) {
+        Film film = filmStorage.findFilmById(filmId)
+                .orElseThrow(() -> {
+                    log.error("Попытка найти несуществующий фильм");
+                    return new NotFoundException("Фильм не найден");
+                });
+        FilmDto dto = FilmMapper.mapToFilmDto(film);
+        dto.setMpa(mpaService.getMpaById(film.getMpa().getMpaId()));
+        dto.setGenres(getGenresForFilm(film.getFilmId()));
+        return dto;
+    }
+
+    private void validateMpa(Long mpaId) {
+        mpaService.getMpaById(mpaId);
+    }
+
+    private void validateGenre(Collection<GenreDto> genres) {
+        Optional.ofNullable(genres)
+                .ifPresent(g -> g.forEach(genre -> genreService.getGenreById(genre.getId())));
+    }
+
+    private void addGenresToFilm(Long filmId, Collection<GenreDto> genres) {
+        Optional.ofNullable(genres)
+                .ifPresent(g -> {
+                    filmGenreStorage.removeFilmGenres(filmId);
+                    log.debug("Удалены записи жанров для фильма id = {}", filmId);
+                    g.stream()
+                            .map(GenreDto::getId)
+                            .distinct()
+                            .forEach(genreId -> {
+                                filmGenreStorage.addFilmGenre(filmId, genreId);
+                                log.debug("Добавлена запись жанра id = {} к фильму id = {}", genreId, filmId);
+                            });
                 });
     }
 
-    public void addLike(Long id, Long userId) {
-        log.debug("Попытка добавить лайк пользователем {} фильму {}", userId, id);
-        Film film = getFilmById(id);
-        User user = userService.getUserById(userId);
-        if (film.getLikes().contains(userId)) {
-            log.warn("Попытка пользователя {} повторно добавить лайк фильму {}", userId, id);
-            throw new DuplicatedDataException("Пользователь " + userId + " уже поставил лайк фильму " + id);
-        }
-        film.getLikes().add(user.getId());
-        filmStorage.updateFilm(film);
-        log.info("Лайк пользователя {} фильму {} успешно добавлен", userId, id);
+    private Collection<GenreDto> getGenresForFilm(Long filmId) {
+        return filmGenreStorage.findGenresFilm(filmId).stream()
+                .map(genreService::getGenreById)
+                .toList();
     }
 
-    public void removeLike(Long id, Long userId) {
-        log.debug("Попытка удалить лайк пользователем {} у фильма {}", userId, id);
-        Film film = getFilmById(id);
-        User user = userService.getUserById(userId);
-        if (!film.getLikes().contains(userId)) {
-            log.error("Попытка пользователя {} удалить отсутствующий лайк фильму {}", userId, id);
-            throw new NotFoundException("У фильма " + id + " отсутствует лайк от пользователя " + userId);
-        }
-        film.getLikes().remove(user.getId());
-        filmStorage.updateFilm(film);
-        log.info("Лайк пользователя {} у фильма {} успешно удален", userId, id);
-    }
-
-    public Collection<Film> getPopularFilms(Integer count) {
-        log.debug("Попытка получить рейтинговый список фильмов");
-        Collection<Film> result = filmStorage.getRatingFilms(count);
-        log.info("Рейтинговый список фильмов получен");
-        return result;
+    private FilmDto getFilmWithGenres(Film film) {
+        FilmDto dto = FilmMapper.mapToFilmDto(film);
+        dto.setGenres(getGenresForFilm(film.getFilmId()));
+        return dto;
     }
 }
