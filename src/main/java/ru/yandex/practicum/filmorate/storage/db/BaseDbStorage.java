@@ -2,13 +2,18 @@ package ru.yandex.practicum.filmorate.storage.db;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.lang.NonNull;
 import ru.yandex.practicum.filmorate.exception.InternalServerException;
 
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,6 +45,24 @@ public class BaseDbStorage<T> {
         });
     }
 
+    protected void insertCollection(String query, Collection<?> collection, Object... params) {
+        jdbc.batchUpdate(query, new BatchPreparedStatementSetter() {
+            final List<?> list = new ArrayList<>(collection);
+            @Override
+            public void setValues(@NonNull PreparedStatement ps, int i) throws SQLException {
+                for (int j = 0; j < params.length; j++) {
+                    ps.setObject(j + 1, params[j]);
+                }
+                ps.setObject(params.length + 1, list.get(i));
+            }
+
+            @Override
+            public int getBatchSize() {
+                return collection.size();
+            }
+        });
+    }
+
     protected void update(String query, Object... params) {
         int rowsUpdated = jdbc.update(query, params);
         if (rowsUpdated == 0) {
@@ -47,9 +70,8 @@ public class BaseDbStorage<T> {
         }
     }
 
-    protected boolean delete(String query, Object... params) {
-        int rowsDeleted = jdbc.update(query, params);
-        return rowsDeleted > 0;
+    protected void delete(String query, Object... params) {
+        jdbc.update(query, params);
     }
 
     protected Optional<T> getOne(String query, Object... params) {

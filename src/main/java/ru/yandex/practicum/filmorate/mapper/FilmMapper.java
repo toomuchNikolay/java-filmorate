@@ -19,7 +19,7 @@ public final class FilmMapper {
                 .releaseDate(request.getReleaseDate())
                 .duration(request.getDuration())
                 .mpa(MpaMapper.mapToMpa(request.getMpa()))
-                .genres(Collections.emptyList())
+                .genres(Collections.emptySet())
                 .build();
     }
 
@@ -31,7 +31,7 @@ public final class FilmMapper {
                 .releaseDate(film.getReleaseDate())
                 .duration(film.getDuration())
                 .mpa(MpaMapper.mapToMpaDto(film.getMpa()))
-                .genres(Collections.emptyList())
+                .genres(Collections.emptySet())
                 .build();
     }
 

@@ -1,16 +1,15 @@
 package ru.yandex.practicum.filmorate.storage.db;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.model.FilmGenre;
+import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.FilmGenreStorage;
 
 import java.util.Collection;
 
 @Repository
-@Primary
 public class DbFilmGenreStorage extends BaseDbStorage<FilmGenre> implements FilmGenreStorage {
     private static final String INSERT = "INSERT INTO film_genres(film_id, genre_id) VALUES (?, ?)";
     private static final String DELETE = "DELETE FROM film_genres WHERE film_id = ?";
@@ -21,18 +20,17 @@ public class DbFilmGenreStorage extends BaseDbStorage<FilmGenre> implements Film
     }
 
     @Override
-    public void addFilmGenre(Long filmId, Long genreId) {
-        insertWithoutKey(INSERT,
-                filmId,
-                genreId
-                );
+    public void addFilmGenre(Long filmId, Collection<Genre> genres) {
+        insertCollection(INSERT, genres.stream()
+                        .map(Genre::getGenreId)
+                        .distinct()
+                        .toList(),
+                filmId);
     }
 
     @Override
     public void removeFilmGenres(Long filmId) {
-        delete(DELETE,
-                filmId
-        );
+        delete(DELETE, filmId);
     }
 
     @Override

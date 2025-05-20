@@ -10,10 +10,12 @@ import ru.yandex.practicum.filmorate.dto.genre.GenreDto;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.mapper.FilmMapper;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.FilmGenreStorage;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Optional;
 
 @Service
@@ -44,7 +46,9 @@ public class FilmService {
                     return new NotFoundException("Фильм не найден");
                 });
         FilmMapper.updateFilmFields(findFilm, film);
-        addGenresToFilm(findFilm.getFilmId(), film.getGenres());
+        if (film.getGenres() != null) {
+            addGenresToFilm(findFilm.getFilmId(), film.getGenres());
+        }
         Film updated = filmStorage.updateFilm(findFilm);
         log.debug("Обновлена запись фильма: {}", updated);
         FilmDto dto = FilmMapper.mapToFilmDto(updated);
@@ -80,18 +84,14 @@ public class FilmService {
     }
 
     private void addGenresToFilm(Long filmId, Collection<GenreDto> genres) {
-        Optional.ofNullable(genres)
-                .ifPresent(g -> {
-                    filmGenreStorage.removeFilmGenres(filmId);
-                    log.debug("Удалены записи жанров для фильма id = {}", filmId);
-                    g.stream()
-                            .map(GenreDto::getId)
-                            .distinct()
-                            .forEach(genreId -> {
-                                filmGenreStorage.addFilmGenre(filmId, genreId);
-                                log.debug("Добавлена запись жанра id = {} к фильму id = {}", genreId, filmId);
-                            });
-                });
+        Collection<GenreDto> collection = Optional.ofNullable(genres)
+                        .orElse(Collections.emptyList());
+        if (!collection.isEmpty()) {
+            filmGenreStorage.removeFilmGenres(filmId);
+            filmGenreStorage.addFilmGenre(filmId, collection.stream()
+                    .map(dto -> Genre.builder().genreId(dto.getId()).name(dto.getName()).build())
+                    .toList());
+        }
     }
 
     private Collection<GenreDto> getGenresForFilm(Long filmId) {

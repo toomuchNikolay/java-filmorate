@@ -1,6 +1,5 @@
 package ru.yandex.practicum.filmorate.storage.db;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -11,7 +10,6 @@ import java.util.Collection;
 import java.util.Optional;
 
 @Repository
-@Primary
 public class DbLikeStorage extends BaseDbStorage<Like> implements LikeStorage {
     private static final String INSERT = "INSERT INTO film_likes(film_id, user_id) VALUES (?, ?)";
     private static final String DELETE = "DELETE FROM film_likes WHERE film_id = ? AND user_id = ?";

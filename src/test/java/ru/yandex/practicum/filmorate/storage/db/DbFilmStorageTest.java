@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -32,7 +33,7 @@ class DbFilmStorageTest {
                 .releaseDate(LocalDate.of(2010, 10, 10))
                 .duration(100)
                 .mpa(Mpa.builder().mpaId(3L).build())
-                .genres(List.of(Genre.builder().genreId(1L).build(), Genre.builder().genreId(2L).build()))
+                .genres(Set.of(Genre.builder().genreId(1L).build(), Genre.builder().genreId(2L).build()))
                 .build();
     }
 

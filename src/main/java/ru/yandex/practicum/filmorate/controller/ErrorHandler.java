@@ -1,4 +1,4 @@
-package ru.yandex.practicum.filmorate.exception;
+package ru.yandex.practicum.filmorate.controller;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -6,12 +6,21 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import ru.yandex.practicum.filmorate.exception.DuplicatedDataException;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.ErrorResponse;
 
 import java.sql.SQLException;
 import java.time.Instant;
 
 @RestControllerAdvice
 public class ErrorHandler {
+    private static final String CONSTRAINT_EMAIL_TABLE_USERS = "unique_email";
+    private static final String CONSTRAINT_LOGIN_TABLE_USERS = "unique_login";
+    private static final String VIOLATION_NOT_NULL = "23502";
+    private static final String VIOLATION_UNIQUE = "23505";
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleNotValidArgument(final MethodArgumentNotValidException e) {
@@ -45,14 +54,14 @@ public class ErrorHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ErrorResponse handleDataIntegrity(final DataIntegrityViolationException e) {
         if (e.getRootCause() != null && e.getRootCause() instanceof SQLException sqlE) {
-            if ("23502".equals(sqlE.getSQLState())) {
+            if (VIOLATION_NOT_NULL.equals(sqlE.getSQLState())) {
                 return buildResponse(HttpStatus.BAD_REQUEST.value(),
                         new ValidationException("Поле не может быть пустым"));
-            } else if ("23505".equals(sqlE.getSQLState())) {
+            } else if (VIOLATION_UNIQUE.equals(sqlE.getSQLState())) {
                 String message = "Запись с указанными данными уже существует";
-                if (sqlE.getMessage().toLowerCase().contains("unique_email")) {
+                if (sqlE.getMessage().toLowerCase().contains(CONSTRAINT_EMAIL_TABLE_USERS)) {
                     message = "Указанный email уже используется";
-                } else if (sqlE.getMessage().toLowerCase().contains("unique_login")) {
+                } else if (sqlE.getMessage().toLowerCase().contains(CONSTRAINT_LOGIN_TABLE_USERS)) {
                     message = "Указанный login уже используется";
                 }
                 return buildResponse(HttpStatus.CONFLICT.value(),

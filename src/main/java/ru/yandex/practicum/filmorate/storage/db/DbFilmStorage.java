@@ -1,6 +1,5 @@
 package ru.yandex.practicum.filmorate.storage.db;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -10,7 +9,6 @@ import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import java.util.*;
 
 @Repository
-@Primary
 public class DbFilmStorage extends BaseDbStorage<Film> implements FilmStorage {
     private static final String INSERT = "INSERT INTO films(title, description, release_date, duration, mpa_id)" +
             "VALUES (?, ?, ?, ?, ?)";
@@ -38,9 +36,6 @@ public class DbFilmStorage extends BaseDbStorage<Film> implements FilmStorage {
                 film.getMpa().getMpaId()
         );
         film.setFilmId(id);
-//        film.getGenres().stream()
-//                .map(Genre::getGenreId)
-//                .toList();
         return film;
     }
 

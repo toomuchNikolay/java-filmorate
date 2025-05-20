@@ -1,6 +1,5 @@
 package ru.yandex.practicum.filmorate.storage.db;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -11,7 +10,6 @@ import java.util.Collection;
 import java.util.Optional;
 
 @Repository
-@Primary
 public class DbUserStorage extends BaseDbStorage<User> implements UserStorage {
     private static final String INSERT = "INSERT INTO users(email, login, name, birthday) VALUES (?, ?, ?, ?)";
     private static final String UPDATE = "UPDATE users SET email = ?, login = ?, name = ?, birthday = ? " +

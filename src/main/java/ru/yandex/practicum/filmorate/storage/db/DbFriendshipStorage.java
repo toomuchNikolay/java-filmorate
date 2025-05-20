@@ -1,6 +1,5 @@
 package ru.yandex.practicum.filmorate.storage.db;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -11,7 +10,6 @@ import java.util.Collection;
 import java.util.Optional;
 
 @Repository
-@Primary
 public class DbFriendshipStorage extends BaseDbStorage<Friendship> implements FriendshipStorage {
     private static final String INSERT = "INSERT INTO friendships(user_id, friend_id) VALUES (?, ?)";
     private static final String DELETE = "DELETE FROM friendships WHERE user_id = ? AND friend_id = ?";
