@@ -1,15 +1,17 @@
 package ru.yandex.practicum.filmorate.controller;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.dto.film.FilmDto;
+import ru.yandex.practicum.filmorate.dto.film.NewFilmRequest;
+import ru.yandex.practicum.filmorate.dto.film.UpdateFilmRequest;
+import ru.yandex.practicum.filmorate.dto.user.UserDto;
 import ru.yandex.practicum.filmorate.service.FilmService;
-import ru.yandex.practicum.filmorate.validator.ValidationGroups;
+import ru.yandex.practicum.filmorate.service.LikeService;
 
 import java.util.*;
 
@@ -18,67 +20,80 @@ import java.util.*;
 @RequiredArgsConstructor
 @Slf4j
 public class FilmController {
-    private final FilmService service;
+    private final FilmService filmService;
+    private final LikeService likeService;
 
     @PostMapping
-    public ResponseEntity<Film> addFilm(
-            @Validated(ValidationGroups.PostValidationGroup.class) @RequestBody Film film
-    ) {
-        log.debug("Получен запрос на добавление фильма {}", film);
-        Film added = service.addFilm(film);
-        log.debug("Запрос на добавление фильма успешно обработан");
-        return ResponseEntity.status(HttpStatus.CREATED).body(added);
+    @ResponseStatus(HttpStatus.CREATED)
+    public FilmDto addFilm(@RequestBody @Valid NewFilmRequest film) {
+        log.info("Запрос на добавление фильма: {}", film);
+        FilmDto added = filmService.addFilm(film);
+        log.info("Запрос успешно обработан, добавлен фильм: {}", added);
+        return added;
     }
 
     @PutMapping
-    public ResponseEntity<Film> updateFilm(
-            @Validated(ValidationGroups.PutValidationGroup.class) @RequestBody Film film
-    ) {
-        log.debug("Получен запрос на обновление фильма с id {}", film.getId());
-        Film updated = service.updateFilm(film);
-        log.debug("Запрос на обновление фильма успешно обработан");
-        return ResponseEntity.ok(updated);
-    }
-
-    @PutMapping("/{id}/like/{userId}")
-    public ResponseEntity<Void> addLike(
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long id,
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long userId
-    ) {
-        log.debug("Получен запрос на добавление лайка фильму {} от пользователя {}", id, userId);
-        service.addLike(id, userId);
-        log.debug("Запрос на добавление лайка успешно обработан");
-        return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping("/{id}/like/{userId}")
-    public ResponseEntity<Void> removeLike(
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long id,
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long userId
-    ) {
-        log.debug("Получен запрос на удаление лайка у фильма {} от пользователя {}", id, userId);
-        service.removeLike(id, userId);
-        log.debug("Запрос на удаление лайка успешно обработан");
-        return ResponseEntity.noContent().build();
+    @ResponseStatus(HttpStatus.OK)
+    public FilmDto updateFilm(@RequestBody @Valid UpdateFilmRequest film) {
+        log.info("Запрос на обновление фильма: {}", film);
+        FilmDto updated = filmService.updateFilm(film);
+        log.info("Запрос успешно обработан, обновлен фильм: {}", updated);
+        return updated;
     }
 
     @GetMapping
-    public ResponseEntity<Collection<Film>> getAllFilms() {
-        log.debug("Получен запрос на формирование списка всех фильмов");
-        Collection<Film> allFilms = service.getAllFilms();
-        log.debug("Запрос на формирование списка всех фильмов успешно обработан");
-        return ResponseEntity.ok(allFilms);
+    @ResponseStatus(HttpStatus.OK)
+    public Collection<FilmDto> getAllFilms() {
+        log.info("Запрос на получение списка всех фильмов");
+        Collection<FilmDto> collection = filmService.getAllFilms();
+        log.info("Запрос успешно обработан, размер списка: {}", collection.size());
+        return collection;
+    }
+
+    @GetMapping("/{filmId}")
+    @ResponseStatus(HttpStatus.OK)
+    public FilmDto getFilmById(@PathVariable Long filmId) {
+        log.info("Запрос на получение фильма id = {}", filmId);
+        FilmDto findFilm = filmService.getFilmById(filmId);
+        log.info("Запрос успешно обработан, получен фильм: {}", findFilm);
+        return findFilm;
+    }
+
+    @PutMapping("/{filmId}/like/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void addLike(@PathVariable Long filmId, @PathVariable Long userId) {
+        log.info("Запрос на добавление лайка фильму id = {} от пользователя id = {}", filmId, userId);
+        likeService.addLike(filmId, userId);
+        log.info("Запрос успешно обработан, лайк добавлен");
+    }
+
+    @DeleteMapping("/{filmId}/like/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeLike(@PathVariable Long filmId, @PathVariable Long userId) {
+        log.info("Запрос на удаление лайка фильму id = {} от пользователя id = {}", filmId, userId);
+        likeService.removeLike(filmId, userId);
+        log.info("Запрос успешно обработан, лайк добавлен");
+    }
+
+    @GetMapping("/{filmId}/like")
+    @ResponseStatus(HttpStatus.OK)
+    public Collection<UserDto> getFilmLikes(@PathVariable Long filmId) {
+        log.info("Запрос на получение списка пользователей, лайкнувших фильм id = {}", filmId);
+        Collection<UserDto> collection = likeService.getFilmLikes(filmId);
+        log.info("Запрос успешно обработан, размер списка: {}", collection.size());
+        return collection;
     }
 
     @GetMapping("/popular")
-    public ResponseEntity<Collection<Film>> getPopularFilms(
+    @ResponseStatus(HttpStatus.OK)
+    public Collection<FilmDto> getPopularFilms(
             @RequestParam(defaultValue = "10")
             @Positive(message = "Размер списка должен быть больше нуля")
             Integer count
     ) {
-        log.debug("Получен запрос на формирование списка популярных фильмов");
-        Collection<Film> topFilms = service.getPopularFilms(count);
-        log.debug("Запрос на формирование списка популярных фильмов успешно обработан");
-        return ResponseEntity.ok(topFilms);
+        log.info("Запрос на получение списка популярных фильмов в количестве {}", count);
+        Collection<FilmDto> collection = likeService.getPopularFilms(count);
+        log.info("Запрос успешно обработан");
+        return collection;
     }
 }

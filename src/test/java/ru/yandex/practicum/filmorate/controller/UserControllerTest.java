@@ -1,104 +1,90 @@
 package ru.yandex.practicum.filmorate.controller;
 
-import org.junit.jupiter.api.BeforeEach;
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.test.annotation.DirtiesContext;
-import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.storage.user.UserStorage;
+import org.springframework.transaction.annotation.Transactional;
+import ru.yandex.practicum.filmorate.dto.film.FilmDto;
+import ru.yandex.practicum.filmorate.dto.user.NewUserRequest;
+import ru.yandex.practicum.filmorate.dto.user.UpdateUserRequest;
+import ru.yandex.practicum.filmorate.dto.user.UserDto;
+import ru.yandex.practicum.filmorate.service.LikeService;
 
 import java.time.LocalDate;
 import java.util.Collection;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@AutoConfigureTestDatabase
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
+@Transactional
 class UserControllerTest {
+    private final UserController userController;
+    private final LikeService likeService;
 
-    @Autowired
-    private UserController controller;
-    @Autowired
-    private UserStorage storage;
-
-    private User user;
-
-    @BeforeEach
-    void setUp() {
-        user = User.builder()
-                .email("testaddress@email.com")
-                .login("MyLogin")
-                .name("Name")
-                .birthday(LocalDate.of(2000, 10, 10))
+    @Test
+    void addUser() {
+        NewUserRequest request = NewUserRequest.builder()
+                .email("test@mail.com")
+                .login("test")
+                .name("")
+                .birthday(LocalDate.of(2000, 1, 1))
                 .build();
+        UserDto user = userController.addUser(request);
+        UserDto findUser = userController.getUsersById(user.getId());
+
+        assertThat(user.getId()).isNotNull();
+        assertThat(findUser).isEqualTo(user);
     }
 
     @Test
-    void checkMethodAddUser() {
-        ResponseEntity<User> response = controller.addUser(user);
+    void updateUser() {
+        UpdateUserRequest request = UpdateUserRequest.builder()
+                .id(1L)
+                .login("UpdatedLogin")
+                .build();
+        UserDto user = userController.updateUser(request);
+        Collection<UserDto> collection = userController.getAllUsers();
 
-        assertEquals(HttpStatus.CREATED, response.getStatusCode(),
-                "При успешном добавлении пользователя вернулся не 201 статус");
+        assertThat(collection)
+                .extracting(UserDto::getLogin)
+                .contains(user.getLogin());
     }
 
     @Test
-    void checkMethodUpdateUser() {
-        controller.addUser(user);
-        User updatedUser = User.builder()
-                .id(user.getId())
-                .email("newaddress@mail.com")
-                .login(user.getLogin())
-                .name(user.getName())
-                .birthday(user.getBirthday())
-                .build();
-        ResponseEntity<User> response = controller.updateUser(updatedUser);
+    void getUserLikes() {
+        likeService.addLike(4L, 1L);
+        likeService.addLike(5L, 1L);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode(),
-                "При успешном обновлении пользователя вернулся на 200 статус");
+        assertThat(userController.getUserLikes(1L))
+                .hasSize(2)
+                .extracting(FilmDto::getId)
+                .contains(4L, 5L);
     }
 
     @Test
-    void checkMethodAddFriendAndRemoveFriend() {
-        User friend = User.builder()
-                .email("MyFriend@mail.ru")
-                .login("Friend")
-                .name(" ")
-                .birthday(LocalDate.of(1999, 1, 19))
-                .build();
-        controller.addUser(user);
-        controller.addUser(friend);
-        ResponseEntity<Void> responseAddFriend = controller.addFriend(user.getId(), friend.getId());
-        ResponseEntity<Void> responseRemoveFriend = controller.removeFriend(user.getId(), friend.getId());
+    void addAndRemoveFriend() {
+        userController.addFriend(1L, 2L);
+        userController.addFriend(1L, 3L);
+        userController.addFriend(3L, 1L);
+        userController.addFriend(3L, 2L);
 
-        assertEquals(HttpStatus.NO_CONTENT, responseAddFriend.getStatusCode(),
-                "При успешном добавлении в друзья вернулся не 204 статус");
-        assertEquals(HttpStatus.NO_CONTENT, responseRemoveFriend.getStatusCode(),
-                "При успешном удалении из друзей вернулся не 204 статус");
-    }
+        assertThat(userController.getFriends(1L))
+                .hasSize(2)
+                .extracting(UserDto::getId)
+                .contains(2L, 3L);
+        assertThat(userController.getCommonFriends(1L, 3L))
+                .extracting(UserDto::getId)
+                .contains(2L);
 
-    @Test
-    void checkGetMethods() {
-        User anotherUser = User.builder()
-                .email("someaddress@gmail.com")
-                .login("Login")
-                .name(" ")
-                .birthday(LocalDate.of(1991, 11, 1))
-                .build();
-        controller.addUser(user);
-        controller.addUser(anotherUser);
+        userController.removeFriend(1L, 3L);
 
-        ResponseEntity<Collection<User>> responseGetAllUsers = controller.getAllUsers();
-        ResponseEntity<Collection<User>> responseGetFriends = controller.getFriends(user.getId());
-        ResponseEntity<Collection<User>> responseGetCommonFriends = controller.getCommonFriends(user.getId(), anotherUser.getId());
-
-        assertEquals(HttpStatus.OK, responseGetAllUsers.getStatusCode(),
-                "При успешном запросе списка всех пользователей вернулся не 200 статус");
-        assertEquals(HttpStatus.OK, responseGetFriends.getStatusCode(),
-                "При успешном запросе списка друзей пользователя вернулся не 200 статус");
-        assertEquals(HttpStatus.OK, responseGetCommonFriends.getStatusCode(),
-                "При успешном запросе списка общих друзей пользователей вернулся не 200 статус");
+        assertThat(userController.getFriends(1L))
+                .hasSize(1)
+                .extracting(UserDto::getId)
+                .doesNotContain(3L);
     }
 }

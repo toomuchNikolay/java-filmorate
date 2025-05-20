@@ -1,15 +1,17 @@
 package ru.yandex.practicum.filmorate.controller;
 
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.dto.film.FilmDto;
+import ru.yandex.practicum.filmorate.dto.user.NewUserRequest;
+import ru.yandex.practicum.filmorate.dto.user.UpdateUserRequest;
+import ru.yandex.practicum.filmorate.dto.user.UserDto;
+import ru.yandex.practicum.filmorate.service.FriendshipService;
+import ru.yandex.practicum.filmorate.service.LikeService;
 import ru.yandex.practicum.filmorate.service.UserService;
-import ru.yandex.practicum.filmorate.validator.ValidationGroups;
 
 import java.util.*;
 
@@ -18,76 +20,86 @@ import java.util.*;
 @RequiredArgsConstructor
 @Slf4j
 public class UserController {
-    private final UserService service;
+    private final UserService userService;
+    private final FriendshipService friendshipService;
+    private final LikeService likeService;
 
     @PostMapping
-    public ResponseEntity<User> addUser(
-            @Validated(ValidationGroups.PostValidationGroup.class) @RequestBody User user
-    ) {
-        log.debug("Получен запрос на добавление пользователя {}", user);
-        User added = service.addUser(user);
-        log.debug("Запрос на добавление пользователя успешно обработан");
-        return ResponseEntity.status(HttpStatus.CREATED).body(added);
+    @ResponseStatus(HttpStatus.CREATED)
+    public UserDto addUser(@RequestBody @Valid NewUserRequest user) {
+        log.info("Запрос на добавление пользователя: {}", user);
+        UserDto added = userService.addUser(user);
+        log.info("Запрос успешно обработан, добавлен пользователь: {}", added);
+        return added;
     }
 
     @PutMapping
-    public ResponseEntity<User> updateUser(
-            @Validated(ValidationGroups.PutValidationGroup.class) @RequestBody User user
-    ) {
-        log.debug("Получен запрос на обновление пользователя с id {}", user.getId());
-        User updated = service.updateUser(user);
-        log.debug("Запрос на обновление пользователя успешно обработан");
-        return ResponseEntity.ok(updated);
-    }
-
-    @PutMapping("/{id}/friends/{friendId}")
-    public ResponseEntity<Void> addFriend(
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long id,
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long friendId
-    ) {
-        log.debug("Получен запрос от пользователя {} на добавление в друзья пользователя {}", id, friendId);
-        service.addFriend(id, friendId);
-        log.debug("Запрос на добавление в друзья успешно обработан");
-        return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping("/{id}/friends/{friendId}")
-    public ResponseEntity<Void> removeFriend(
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long id,
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long friendId
-    ) {
-        log.debug("Получен запрос от пользователя {} на удаление из друзей пользователя {}", id, friendId);
-        service.removeFriend(id, friendId);
-        log.debug("Запрос на удаление из друзей успешно обработан");
-        return ResponseEntity.noContent().build();
+    @ResponseStatus(HttpStatus.OK)
+    public UserDto updateUser(@RequestBody @Valid UpdateUserRequest user) {
+        log.info("Запрос на обновление пользователя: {}", user);
+        UserDto updated = userService.updateUser(user);
+        log.info("Запрос успешно обработан, обновлен пользователь: {}", updated);
+        return updated;
     }
 
     @GetMapping
-    public ResponseEntity<Collection<User>> getAllUsers() {
-        log.debug("Получен запрос на формирование списка всех пользователей");
-        Collection<User> allUsers = service.getAllUsers();
-        log.debug("Запрос на формирование списка всех пользователей успешно обработан");
-        return ResponseEntity.ok(allUsers);
+    @ResponseStatus(HttpStatus.OK)
+    public Collection<UserDto> getAllUsers() {
+        log.info("Запрос на получение списка всех пользователей");
+        Collection<UserDto> collection = userService.getAllUsers();
+        log.info("Запрос успешно обработан, размер списка: {}", collection.size());
+        return collection;
     }
 
-    @GetMapping("/{id}/friends")
-    public ResponseEntity<Collection<User>> getFriends(
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long id
-    ) {
-        log.debug("Получен запрос на формирование списка друзей пользователя {}", id);
-        Collection<User> friends = service.getFriends(id);
-        log.debug("Запрос на формирование списка друзей пользователя успешно обработан");
-        return ResponseEntity.ok(friends);
+    @GetMapping("/{userId}")
+    @ResponseStatus(HttpStatus.OK)
+    public UserDto getUsersById(@PathVariable Long userId) {
+        log.info("Запрос на получение пользователя id = {}", userId);
+        UserDto findUser = userService.getUserById(userId);
+        log.info("Запрос успешно обработан, получен пользователь: {}", findUser);
+        return findUser;
     }
 
-    @GetMapping("/{id}/friends/common/{otherId}")
-    public ResponseEntity<Collection<User>> getCommonFriends(
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long id,
-            @PathVariable @Positive(message = "id должен быть больше нуля") Long otherId
-    ) {
-        log.debug("Получен запрос от пользователя {} на формирование списка общих друзей с пользователем {}", id, otherId);
-        Collection<User> commonFriends = service.getCommonFriends(id, otherId);
-        log.debug("Запрос на формирование списка общих друзей успешно обработан");
-        return ResponseEntity.ok(commonFriends);
+    @GetMapping("/{userId}/like")
+    @ResponseStatus(HttpStatus.OK)
+    public Collection<FilmDto> getUserLikes(@PathVariable Long userId) {
+        log.info("Запрос на получение списка всех лайков пользователя id = {}", userId);
+        Collection<FilmDto> collection = likeService.getUserLikes(userId);
+        log.info("Запрос успешно обработан, размер списка: {}", collection.size());
+        return collection;
+    }
+
+    @PutMapping("/{userId}/friends/{friendId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void addFriend(@PathVariable Long userId, @PathVariable Long friendId) {
+        log.info("Запрос пользователя id = {} на добавление в друзья пользователя id {}", userId, friendId);
+        friendshipService.addFriend(userId, friendId);
+        log.info("Запрос успешно обработан, дружба добавлена");
+    }
+
+    @DeleteMapping("/{userId}/friends/{friendId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeFriend(@PathVariable Long userId, @PathVariable Long friendId) {
+        log.info("Запрос пользователя id = {} на удаление из друзей пользователя id {}", userId, friendId);
+        friendshipService.removeFriend(userId, friendId);
+        log.info("Запрос успешно обработан, дружба удалена");
+    }
+
+    @GetMapping("/{userId}/friends")
+    @ResponseStatus(HttpStatus.OK)
+    public Collection<UserDto> getFriends(@PathVariable Long userId) {
+        log.info("Запрос на получение списка всех друзей пользователя id = {}", userId);
+        Collection<UserDto> collection = friendshipService.getFriends(userId);
+        log.info("Запрос успешно обработан, размер списка: {}", collection.size());
+        return collection;
+    }
+
+    @GetMapping("/{userId}/friends/common/{otherId}")
+    @ResponseStatus(HttpStatus.OK)
+    public Collection<UserDto> getCommonFriends(@PathVariable Long userId, @PathVariable Long otherId) {
+        log.info("Запрос на получение списка общих друзей пользователей id = {} и id = {}", userId, otherId);
+        Collection<UserDto> collection = friendshipService.getCommonFriends(userId, otherId);
+        log.info("Запрос успешно обработан, размер списка: {}", collection.size());
+        return collection;
     }
 }

@@ -2,10 +2,12 @@ package ru.yandex.practicum.filmorate.validator.impl;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
+import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.validator.ReleaseDateValid;
 
 import java.time.LocalDate;
 
+@Component
 public class ReleaseDateValidator implements ConstraintValidator<ReleaseDateValid, LocalDate> {
 
     private static final LocalDate MIN_DATE_FOR_RELEASE = LocalDate.of(1895, 12, 28);
